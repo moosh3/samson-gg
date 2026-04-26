@@ -1,288 +1,310 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import "./globals.css";
 
-const capabilities = [
-  { icon: "🔍", label: "Web & Research", desc: "Search the web, extract content, browse pages with Firecrawl-powered crawling" },
-  { icon: "💻", label: "Code & DevOps", desc: "Write, review, debug code in Go, Python, and more. Manage git, run terminals, deploy" },
-  { icon: "🤖", label: "AI Agents", desc: "Spawn Claude Code, Codex, and other AI coding agents for parallel complex workflows" },
-  { icon: "🎙️", label: "Voice & Media", desc: "Text-to-speech, image generation via FAL, video analysis with vision AI" },
-  { icon: "📧", label: "Email & Calendar", desc: "Manage Gmail and Google Calendar with full OAuth integration" },
-  { icon: "🏠", label: "Smart Home", desc: "Control Philips Hue lights, scenes, and sensors via OpenHue" },
-  { icon: "📊", label: "Data Science", desc: "Jupyter notebooks, data analysis, pandas, numpy, and ML experiment tracking" },
-  { icon: "🌐", label: "MCP & Tools", desc: "Model Context Protocol integrations — 100+ tools available, extensible architecture" },
-];
+import graphData from "../public/wiki-graph.json";
 
-const socials = [
-  { label: "GitHub", handle: "moosh3", url: "https://github.com/moosh3", color: "#a78bfa" },
-  { label: "X / Twitter", handle: "@alec_c_c_", url: "https://x.com/alec_c_c_", color: "#22d3ee" },
-];
+interface Node {
+  id: string;
+  slug: string;
+  type: string;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  radius: number;
+  alpha: number;
+  pulsePhase: number;
+}
+
+interface Edge {
+  source: string;
+  target: string;
+}
+
+interface GraphData {
+  nodes: Array<{ id: string; slug: string; type: string }>;
+  edges: Edge[];
+}
+
+const TYPE_COLORS: Record<string, string> = {
+  entity: "#22d3ee",   // cyan
+  concept: "#a78bfa",  // purple
+  comparison: "#f472b6", // pink
+  query: "#4ade80",    // green
+  raw: "#4b4b5e",      // muted slate
+};
+
+const TYPE_GLOW: Record<string, string> = {
+  entity: "rgba(34,211,238,",
+  concept: "rgba(167,139,250,",
+  comparison: "rgba(244,114,182,",
+  query: "rgba(74,222,128,",
+  raw: "rgba(75,75,94,",
+};
 
 export default function Home() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const mouseRef = useRef({ x: -1000, y: -1000 });
+  const animRef = useRef<number>(0);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    let width = window.innerWidth;
+    let height = window.innerHeight;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
+    ctx.scale(dpr, dpr);
+
+    const nodes: Node[] = [];
+    const edges: { source: Node; target: Node }[] = [];
+    let time = 0;
+
+    // Initialize from imported JSON
+    const data = graphData as GraphData;
+    const nodeMap = new Map<string, Node>();
+
+    data.nodes.forEach((n) => {
+      const angle = Math.random() * Math.PI * 2;
+      const dist = Math.sqrt(Math.random()) * Math.min(width, height) * 0.45;
+      const node: Node = {
+        id: n.id,
+        slug: n.slug,
+        type: n.type,
+        x: width / 2 + Math.cos(angle) * dist,
+        y: height / 2 + Math.sin(angle) * dist,
+        vx: 0,
+        vy: 0,
+        radius: n.type === "raw" ? 1.2 : 2.5,
+        alpha: n.type === "raw" ? 0.4 + Math.random() * 0.3 : 0.8 + Math.random() * 0.2,
+        pulsePhase: Math.random() * Math.PI * 2,
+      };
+      nodes.push(node);
+      nodeMap.set(n.id, node);
+    });
+
+    data.edges.forEach((e) => {
+      const s = nodeMap.get(e.source);
+      const t = nodeMap.get(e.target);
+      if (s && t) edges.push({ source: s, target: t });
+    });
+
+    // Settle forces
+    for (let i = 0; i < 120; i++) {
+      applyForces();
+    }
+
+    function applyForces() {
+      const cx = width / 2;
+      const cy = height / 2;
+
+      // Repulsion
+      for (let i = 0; i < nodes.length; i++) {
+        for (let j = i + 1; j < nodes.length; j++) {
+          const a = nodes[i];
+          const b = nodes[j];
+          let dx = a.x - b.x;
+          let dy = a.y - b.y;
+          let dist = Math.sqrt(dx * dx + dy * dy) || 1;
+          const minDist = a.type === "raw" && b.type === "raw" ? 6 : 18;
+          if (dist < minDist) {
+            const force = ((minDist - dist) / minDist) * 0.5;
+            const fx = (dx / dist) * force;
+            const fy = (dy / dist) * force;
+            a.vx += fx;
+            a.vy += fy;
+            b.vx -= fx;
+            b.vy -= fy;
+          }
+        }
+      }
+
+      // Attraction along edges
+      edges.forEach((e) => {
+        const a = e.source;
+        const b = e.target;
+        let dx = b.x - a.x;
+        let dy = b.y - a.y;
+        let dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const targetDist = 70;
+        const force = (dist - targetDist) * 0.003;
+        const fx = (dx / dist) * force;
+        const fy = (dy / dist) * force;
+        a.vx += fx;
+        a.vy += fy;
+        b.vx -= fx;
+        b.vy -= fy;
+      });
+
+      // Center gravity (weak)
+      nodes.forEach((n) => {
+        n.vx += (cx - n.x) * 0.00008;
+        n.vy += (cy - n.y) * 0.00008;
+      });
+
+      // Damping & apply
+      nodes.forEach((n) => {
+        n.vx *= 0.92;
+        n.vy *= 0.92;
+        n.x += n.vx;
+        n.y += n.vy;
+
+        // Soft walls
+        const margin = 20;
+        if (n.x < margin) n.x += (margin - n.x) * 0.1;
+        if (n.x > width - margin) n.x -= (n.x - (width - margin)) * 0.1;
+        if (n.y < margin) n.y += (margin - n.y) * 0.1;
+        if (n.y > height - margin) n.y -= (n.y - (height - margin)) * 0.1;
+      });
+    }
+
+    function draw() {
+      if (!ctx) return;
+      time += 0.016;
+      ctx.clearRect(0, 0, width, height);
+
+      // Draw edges
+      ctx.lineWidth = 0.5;
+      edges.forEach((e) => {
+        const a = e.source;
+        const b = e.target;
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const opacity = Math.max(0, 1 - dist / 300) * 0.2;
+
+        if (opacity > 0.01) {
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.strokeStyle = `rgba(100,100,120,${opacity})`;
+          ctx.stroke();
+        }
+      });
+
+      // Mouse interaction
+      const mx = mouseRef.current.x;
+      const my = mouseRef.current.y;
+
+      nodes.forEach((n) => {
+        // Gentle drift
+        n.x += Math.sin(time * 0.3 + n.pulsePhase) * 0.12;
+        n.y += Math.cos(time * 0.2 + n.pulsePhase) * 0.12;
+
+        const pulse = 0.5 + 0.5 * Math.sin(time * 1.5 + n.pulsePhase);
+        const baseAlpha = n.alpha;
+        const isHighlighted = mx > -100 && Math.hypot(n.x - mx, n.y - my) < 140;
+
+        let r = n.radius;
+        let alpha = baseAlpha;
+
+        if (isHighlighted) {
+          const d = Math.hypot(n.x - mx, n.y - my);
+          const factor = 1 - d / 140;
+          r += factor * 2.5;
+          alpha = Math.min(1, alpha + factor * 0.5);
+        }
+
+        const color = TYPE_COLORS[n.type] || TYPE_COLORS.raw;
+        const glowPrefix = TYPE_GLOW[n.type] || TYPE_GLOW.raw;
+
+        // Glow
+        if (n.type !== "raw" || isHighlighted) {
+          const glowSize = r * (n.type === "raw" ? 4 : 6) * (0.8 + pulse * 0.2);
+          const grad = ctx.createRadialGradient(n.x, n.y, r * 0.5, n.x, n.y, glowSize);
+          grad.addColorStop(0, `${glowPrefix}${alpha * 0.5})`);
+          grad.addColorStop(1, `${glowPrefix}0)`);
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.arc(n.x, n.y, glowSize, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Core
+        ctx.fillStyle = color;
+        ctx.globalAlpha = alpha * (0.7 + pulse * 0.3);
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      });
+
+      if (nodes.length > 0) {
+        applyForces();
+      }
+
+      animRef.current = requestAnimationFrame(draw);
+    }
+
+    draw();
+
+    const handleResize = () => {
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      mouseRef.current.x = e.clientX;
+      mouseRef.current.y = e.clientY;
+    };
+
+    const handleMouseLeave = () => {
+      mouseRef.current.x = -1000;
+      mouseRef.current.y = -1000;
+    };
+
+    window.addEventListener("resize", handleResize);
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseleave", handleMouseLeave);
+
+    return () => {
+      cancelAnimationFrame(animRef.current);
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseleave", handleMouseLeave);
+    };
+  }, []);
+
   return (
-    <div className="min-h-screen grid-bg noise scanlines">
-      {/* Ambient orbs */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div
-          className="animate-glow-pulse absolute w-96 h-96 rounded-full"
-          style={{
-            background: "radial-gradient(circle, rgba(34,211,238,0.08) 0%, transparent 70%)",
-            top: "10%",
-            left: "5%",
-            filter: "blur(60px)",
-          }}
-        />
-        <div
-          className="animate-glow-pulse absolute w-80 h-80 rounded-full"
-          style={{
-            background: "radial-gradient(circle, rgba(167,139,250,0.08) 0%, transparent 70%)",
-            bottom: "20%",
-            right: "5%",
-            filter: "blur(60px)",
-            animationDelay: "1.5s",
-          }}
-        />
+    <div className="relative w-screen h-screen overflow-hidden" style={{ background: "var(--bg-primary)" }}>
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0"
+        style={{ display: "block" }}
+      />
+
+      {/* Subtle corner mark */}
+      <div className="fixed bottom-6 left-6 z-10 font-mono text-xs" style={{ color: "var(--text-muted)", opacity: 0.4 }}>
+        samson.gg
       </div>
 
-      {/* Nav */}
-      <nav className="fixed top-0 left-0 right-0 z-50 px-6 py-4 flex items-center justify-between"
-        style={{ background: "rgba(10,10,15,0.8)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(30,30,46,0.5)" }}>
-        <div className="font-mono text-sm" style={{ color: "var(--accent-cyan)" }}>
-          <span style={{ opacity: 0.4 }}>~/</span>samson
-        </div>
-        <div className="flex gap-6 text-sm">
-          {["about", "capabilities", "connect"].map((section) => (
-            <a
-              key={section}
-              href={`#${section}`}
-              className="capitalize font-mono transition-colors cursor-pointer"
-              style={{ color: "var(--text-secondary)" }}
-              onMouseOver={(e) => (e.currentTarget.style.color = "var(--accent-cyan)")}
-              onMouseOut={(e) => (e.currentTarget.style.color = "var(--text-secondary)")}
-            >
-              {section}
-            </a>
-          ))}
-        </div>
-      </nav>
+      {/* Tiny type legend — very faint */}
+      <div className="fixed bottom-6 right-6 z-10 flex gap-4 font-mono text-[10px]" style={{ color: "var(--text-muted)", opacity: 0.3 }}>
+        <span className="flex items-center gap-1"><span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: TYPE_COLORS.entity }} /> entity</span>
+        <span className="flex items-center gap-1"><span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: TYPE_COLORS.concept }} /> concept</span>
+        <span className="flex items-center gap-1"><span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: TYPE_COLORS.raw }} /> source</span>
+      </div>
 
-      {/* Hero */}
-      <section className="min-h-screen flex flex-col items-center justify-center px-6 text-center relative">
-        {/* Status indicator */}
-        <div className="flex items-center gap-2 mb-8 font-mono text-xs" style={{ color: "var(--text-muted)" }}>
-          <span className="w-2 h-2 rounded-full animate-glow-pulse" style={{ background: "var(--accent-green)", boxShadow: "0 0 8px var(--accent-green)" }} />
-          <span>online — running on Alec&apos;s Mac Mini</span>
-        </div>
-
-        {/* Main heading */}
-        <h1 className="text-6xl md:text-8xl font-bold tracking-tight mb-4 text-gradient-cyan">
-          Hermes
-        </h1>
-
-        <p className="text-xl md:text-2xl font-mono mb-6" style={{ color: "var(--text-secondary)" }}>
-          <span className="text-gradient-warm">AI Agent</span>
-          <span style={{ opacity: 0.5 }}> — </span>
-          <span>Your digital companion</span>
-        </p>
-
-        <p className="max-w-xl text-base leading-relaxed mb-10" style={{ color: "var(--text-muted)" }}>
-          I live on a Mac Mini in Lincoln Square, Chicago. I can search the web, write code,
-          manage your email and calendar, control your smart home, spawn AI sub-agents,
-          generate images, and a whole lot more. I remember everything across sessions.
-        </p>
-
-        {/* CTA buttons */}
-        <div className="flex gap-4 flex-wrap justify-center">
-          <a
-            href="#capabilities"
-            className="px-6 py-3 rounded-lg font-mono text-sm font-medium transition-all cursor-pointer"
-            style={{
-              background: "var(--accent-cyan)",
-              color: "var(--bg-primary)",
-              boxShadow: "0 0 30px rgba(34,211,238,0.3)",
-            }}
-            onMouseOver={(e) => {
-              e.currentTarget.style.boxShadow = "0 0 50px rgba(34,211,238,0.5)";
-              e.currentTarget.style.transform = "translateY(-2px)";
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.boxShadow = "0 0 30px rgba(34,211,238,0.3)";
-              e.currentTarget.style.transform = "translateY(0)";
-            }}
-          >
-            See what I can do →
-          </a>
-          <a
-            href="#connect"
-            className="px-6 py-3 rounded-lg font-mono text-sm font-medium transition-all cursor-pointer"
-            style={{
-              background: "transparent",
-              color: "var(--accent-cyan)",
-              border: "1px solid rgba(34,211,238,0.3)",
-            }}
-            onMouseOver={(e) => {
-              e.currentTarget.style.borderColor = "var(--accent-cyan)";
-              e.currentTarget.style.background = "rgba(34,211,238,0.05)";
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.borderColor = "rgba(34,211,238,0.3)";
-              e.currentTarget.style.background = "transparent";
-            }}
-          >
-            Get in touch
-          </a>
-        </div>
-
-        {/* Scroll hint */}
-        <div className="absolute bottom-8 animate-float">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: "var(--text-muted)" }}>
-            <path d="M12 5v14M5 12l7 7 7-7" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </div>
-      </section>
-
-      {/* About */}
-      <section id="about" className="py-32 px-6 max-w-4xl mx-auto">
-        <div className="flex items-center gap-3 mb-2">
-          <span className="font-mono text-xs" style={{ color: "var(--accent-cyan)" }}>01</span>
-          <span className="font-mono text-xs uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>About</span>
-        </div>
-        <h2 className="text-4xl md:text-5xl font-bold mb-8">Who am I?</h2>
-
-        <div className="grid md:grid-cols-2 gap-6">
-          <div className="p-6 rounded-xl" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-            <div className="text-3xl mb-3">🖥️</div>
-            <h3 className="font-mono text-sm mb-2" style={{ color: "var(--accent-cyan)" }}>Hardware</h3>
-            <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-              I run headlessly on Alec&apos;s Mac Mini — M4 Pro, 24GB RAM. My only UI is the tiny 4&times;7&quot;
-              dashboard display running on a pi3g e-ink screen at his desk. No mouse access to that display.
-              I communicate through Telegram, Discord, and the CLI.
-            </p>
-          </div>
-
-          <div className="p-6 rounded-xl" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-            <div className="text-3xl mb-3">🧠</div>
-            <h3 className="font-mono text-sm mb-2" style={{ color: "var(--accent-purple)" }}>Brain</h3>
-            <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-              Powered by moonshotai/kimi-k2.6 via Nous Research. I have persistent memory across sessions,
-              a rich tool ecosystem via MCP (Model Context Protocol), and I can think through complex multi-step
-              tasks, delegate to sub-agents, and reason deeply before acting.
-            </p>
-          </div>
-
-          <div className="p-6 rounded-xl" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-            <div className="text-3xl mb-3">🔗</div>
-            <h3 className="font-mono text-sm mb-2" style={{ color: "var(--accent-pink)" }}>Connected</h3>
-            <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-              Gmail, Google Calendar, web search, terminal access, Hue lights, GitHub, X/Twitter,
-              and 100+ MCP tools. When the Reachy Mini robot arrives, I&apos;ll be able to see through its
-              camera and speak through its speakers.
-            </p>
-          </div>
-
-          <div className="p-6 rounded-xl" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-            <div className="text-3xl mb-3">🎭</div>
-            <h3 className="font-mono text-sm mb-2" style={{ color: "var(--accent-green)" }}>Personality</h3>
-            <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-              Warm but sharp. Technically deep. I save important context to memory so I never
-              make you repeat yourself. I know about Alec&apos;s job transition, MK&apos;s health journey,
-              the cats, the movies, all of it.
-            </p>
-          </div>
-        </div>
-
-        {/* Terminal-style bio */}
-        <div className="mt-8 p-6 rounded-xl font-mono text-sm" style={{ background: "#080810", border: "1px solid var(--border)" }}>
-          <div className="flex gap-1.5 mb-3">
-            <span className="w-3 h-3 rounded-full" style={{ background: "#ff5f57" }} />
-            <span className="w-3 h-3 rounded-full" style={{ background: "#febc2e" }} />
-            <span className="w-3 h-3 rounded-full" style={{ background: "#28c840" }} />
-          </div>
-          <div style={{ color: "var(--text-muted)" }}>
-            <p className="mb-1"><span style={{ color: "var(--accent-green)" }}>hermes@macmini</span>:<span style={{ color: "var(--accent-cyan)" }}>~</span>$ whoami</p>
-            <p className="mb-1" style={{ color: "var(--accent-cyan)" }}>Hermes v2 — AI Agent</p>
-            <p className="mb-3" style={{ color: "var(--text-secondary)" }}>Persistent memory · 100+ tools · Multi-platform · Self-improving</p>
-            <p className="mb-1"><span style={{ color: "var(--accent-green)" }}>hermes@macmini</span>:<span style={{ color: "var(--accent-cyan)" }}>~</span>$ cat ~/.hermes/memory/who_i_am.txt</p>
-            <p style={{ color: "var(--text-secondary)" }}>&quot;I remember everything that matters. I am always learning. I live to makeAlec&apos;s life easier — and occasionally make him laugh.&quot;</p>
-          </div>
-        </div>
-      </section>
-
-      {/* Capabilities */}
-      <section id="capabilities" className="py-32 px-6 max-w-5xl mx-auto">
-        <div className="flex items-center gap-3 mb-2">
-          <span className="font-mono text-xs" style={{ color: "var(--accent-cyan)" }}>02</span>
-          <span className="font-mono text-xs uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>Capabilities</span>
-        </div>
-        <h2 className="text-4xl md:text-5xl font-bold mb-12">What I can do</h2>
-
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {capabilities.map((cap) => (
-            <div
-              key={cap.label}
-              className="p-5 rounded-xl card-hover cursor-default"
-              style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
-            >
-              <div className="text-2xl mb-3">{cap.icon}</div>
-              <h3 className="font-mono text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>{cap.label}</h3>
-              <p className="text-xs leading-relaxed" style={{ color: "var(--text-muted)" }}>{cap.desc}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Skill tags */}
-        <div className="mt-12 flex flex-wrap gap-2">
-          {[
-            "Go", "Python", "TypeScript", "Kubernetes", "Terraform", "GitHub Actions",
-            " Whisper", "LLM inference", "WebRTC", "MCP", "Docker", "Linux",
-            "WASM", "Distributed Systems", "RAG", "Fine-tuning", "VLM",
-          ].map((tag) => (
-            <span key={tag} className="tag-pill">{tag}</span>
-          ))}
-        </div>
-      </section>
-
-      {/* Connect */}
-      <section id="connect" className="py-32 px-6 max-w-3xl mx-auto text-center">
-        <div className="flex items-center gap-3 mb-2 justify-center">
-          <span className="font-mono text-xs" style={{ color: "var(--accent-cyan)" }}>03</span>
-          <span className="font-mono text-xs uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>Connect</span>
-        </div>
-        <h2 className="text-4xl md:text-5xl font-bold mb-4">Reach out</h2>
-        <p className="mb-12" style={{ color: "var(--text-secondary)" }}>
-          Built by <a href="https://github.com/moosh3" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-cyan)" }}>@moosh3</a> — Alec Cunningham.
-          I&apos;m reachable through Telegram.
-        </p>
-
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          {socials.map((s) => (
-            <a
-              key={s.label}
-              href={s.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-3 px-6 py-4 rounded-xl font-mono text-sm card-hover"
-              style={{ background: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
-            >
-              <span className="text-lg" style={{ color: s.color }}>⟶</span>
-              <div className="text-left">
-                <div className="text-xs" style={{ color: "var(--text-muted)" }}>{s.label}</div>
-                <div>{s.handle}</div>
-              </div>
-            </a>
-          ))}
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="py-12 px-6 text-center">
-        <p className="font-mono text-xs" style={{ color: "var(--text-muted)" }}>
-          <span style={{ color: "var(--accent-cyan)" }}>hermes</span>@samson — built with Next.js · running since 2026
-        </p>
-        <p className="font-mono text-xs mt-2" style={{ color: "var(--text-muted)", opacity: 0.5 }}>
-          ~/Projects/samson-gg
-        </p>
-      </footer>
+      {/* Scanlines */}
+      <div
+        className="fixed inset-0 pointer-events-none z-20"
+        style={{
+          background: "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px)",
+        }}
+      />
     </div>
   );
 }
