@@ -7,8 +7,7 @@ import graphData from "../public/wiki-graph.json";
 
 interface Node {
   id: string;
-  slug: string;
-  type: string;
+  hue: number;
   x: number;
   y: number;
   vx: number;
@@ -24,25 +23,10 @@ interface Edge {
 }
 
 interface GraphData {
-  nodes: Array<{ id: string; slug: string; type: string }>;
+  // Deliberately anonymous public graph: no slugs, titles, paths, or types.
+  nodes: Array<{ id: string; hue: number }>;
   edges: Edge[];
 }
-
-const TYPE_COLORS: Record<string, string> = {
-  entity: "#22d3ee",   // cyan
-  concept: "#a78bfa",  // purple
-  comparison: "#f472b6", // pink
-  query: "#4ade80",    // green
-  raw: "#4b4b5e",      // muted slate
-};
-
-const TYPE_GLOW: Record<string, string> = {
-  entity: "rgba(34,211,238,",
-  concept: "rgba(167,139,250,",
-  comparison: "rgba(244,114,182,",
-  query: "rgba(74,222,128,",
-  raw: "rgba(75,75,94,",
-};
 
 export default function Home() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -77,14 +61,13 @@ export default function Home() {
       const dist = Math.sqrt(Math.random()) * Math.min(width, height) * 0.45;
       const node: Node = {
         id: n.id,
-        slug: n.slug,
-        type: n.type,
+        hue: n.hue,
         x: width / 2 + Math.cos(angle) * dist,
         y: height / 2 + Math.sin(angle) * dist,
         vx: 0,
         vy: 0,
-        radius: n.type === "raw" ? 1.2 : 2.5,
-        alpha: n.type === "raw" ? 0.4 + Math.random() * 0.3 : 0.8 + Math.random() * 0.2,
+        radius: 1.8,
+        alpha: 0.45 + Math.random() * 0.4,
         pulsePhase: Math.random() * Math.PI * 2,
       };
       nodes.push(node);
@@ -111,10 +94,10 @@ export default function Home() {
         for (let j = i + 1; j < nodes.length; j++) {
           const a = nodes[i];
           const b = nodes[j];
-          let dx = a.x - b.x;
-          let dy = a.y - b.y;
-          let dist = Math.sqrt(dx * dx + dy * dy) || 1;
-          const minDist = a.type === "raw" && b.type === "raw" ? 6 : 18;
+          const dx = a.x - b.x;
+          const dy = a.y - b.y;
+          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+          const minDist = 11;
           if (dist < minDist) {
             const force = ((minDist - dist) / minDist) * 0.5;
             const fx = (dx / dist) * force;
@@ -131,9 +114,9 @@ export default function Home() {
       edges.forEach((e) => {
         const a = e.source;
         const b = e.target;
-        let dx = b.x - a.x;
-        let dy = b.y - a.y;
-        let dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
         const targetDist = 70;
         const force = (dist - targetDist) * 0.003;
         const fx = (dx / dist) * force;
@@ -213,15 +196,15 @@ export default function Home() {
           alpha = Math.min(1, alpha + factor * 0.5);
         }
 
-        const color = TYPE_COLORS[n.type] || TYPE_COLORS.raw;
-        const glowPrefix = TYPE_GLOW[n.type] || TYPE_GLOW.raw;
+        const color = `hsl(${n.hue} 76% 65%)`;
+        const glowColor = `hsla(${n.hue} 82% 70% / ${alpha * 0.52})`;
 
         // Glow
-        if (n.type !== "raw" || isHighlighted) {
-          const glowSize = r * (n.type === "raw" ? 4 : 6) * (0.8 + pulse * 0.2);
+        if (isHighlighted || pulse > 0.65) {
+          const glowSize = r * (isHighlighted ? 6 : 3.5) * (0.8 + pulse * 0.2);
           const grad = ctx.createRadialGradient(n.x, n.y, r * 0.5, n.x, n.y, glowSize);
-          grad.addColorStop(0, `${glowPrefix}${alpha * 0.5})`);
-          grad.addColorStop(1, `${glowPrefix}0)`);
+          grad.addColorStop(0, glowColor);
+          grad.addColorStop(1, `hsla(${n.hue} 82% 70% / 0)`);
           ctx.fillStyle = grad;
           ctx.beginPath();
           ctx.arc(n.x, n.y, glowSize, 0, Math.PI * 2);
@@ -285,18 +268,6 @@ export default function Home() {
         className="absolute inset-0"
         style={{ display: "block" }}
       />
-
-      {/* Subtle corner mark */}
-      <div className="fixed bottom-6 left-6 z-10 font-mono text-xs" style={{ color: "var(--text-muted)", opacity: 0.4 }}>
-        samson.gg
-      </div>
-
-      {/* Tiny type legend — very faint */}
-      <div className="fixed bottom-6 right-6 z-10 flex gap-4 font-mono text-[10px]" style={{ color: "var(--text-muted)", opacity: 0.3 }}>
-        <span className="flex items-center gap-1"><span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: TYPE_COLORS.entity }} /> entity</span>
-        <span className="flex items-center gap-1"><span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: TYPE_COLORS.concept }} /> concept</span>
-        <span className="flex items-center gap-1"><span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: TYPE_COLORS.raw }} /> source</span>
-      </div>
 
       {/* Scanlines */}
       <div
