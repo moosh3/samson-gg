@@ -20,7 +20,7 @@ def source_files(brain: Path) -> list[Path]:
     return sorted(
         path
         for path in brain.rglob("*.md")
-        if path.name.lower() not in {"readme.md", "index.md"}
+        if path.is_file() and path.name.lower() not in {"readme.md", "index.md"}
     )
 
 
