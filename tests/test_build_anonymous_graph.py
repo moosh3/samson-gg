@@ -42,6 +42,24 @@ class AnonymousGraphTests(unittest.TestCase):
         self.assertNotIn("path", serialized)
         self.assertNotIn("slug", serialized)
 
+    def test_omits_high_degree_fanout_and_isolated_nodes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            brain = Path(tmp) / "brain"
+            brain.mkdir()
+            links = []
+            for index in range(41):
+                name = f"leaf-{index}"
+                (brain / f"{name}.md").write_text("# Leaf", encoding="utf-8")
+                links.append(f"[[{name}]]")
+            (brain / "indexer.md").write_text(" ".join(links), encoding="utf-8")
+            (brain / "pair-a.md").write_text("[[pair-b]]", encoding="utf-8")
+            (brain / "pair-b.md").write_text("# Pair", encoding="utf-8")
+
+            graph = load_builder().build_graph(brain)
+
+        self.assertEqual(len(graph["nodes"]), 2)
+        self.assertEqual(len(graph["edges"]), 1)
+
     def test_ignores_readmes_and_unresolved_links(self):
         with tempfile.TemporaryDirectory() as tmp:
             brain = Path(tmp) / "brain"
@@ -50,7 +68,7 @@ class AnonymousGraphTests(unittest.TestCase):
             (brain / "idea.md").write_text("[[missing]]", encoding="utf-8")
             graph = load_builder().build_graph(brain)
 
-        self.assertEqual(len(graph["nodes"]), 1)
+        self.assertEqual(graph["nodes"], [])
         self.assertEqual(graph["edges"], [])
 
 
