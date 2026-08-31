@@ -97,7 +97,7 @@ export default function Home() {
           const dx = a.x - b.x;
           const dy = a.y - b.y;
           const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-          const minDist = 11;
+          const minDist = 28;
           if (dist < minDist) {
             const force = ((minDist - dist) / minDist) * 0.5;
             const fx = (dx / dist) * force;
@@ -117,8 +117,8 @@ export default function Home() {
         const dx = b.x - a.x;
         const dy = b.y - a.y;
         const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-        const targetDist = 70;
-        const force = (dist - targetDist) * 0.003;
+        const targetDist = 145;
+        const force = (dist - targetDist) * 0.0018;
         const fx = (dx / dist) * force;
         const fy = (dy / dist) * force;
         a.vx += fx;
