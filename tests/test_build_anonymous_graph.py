@@ -42,7 +42,7 @@ class AnonymousGraphTests(unittest.TestCase):
         self.assertNotIn("path", serialized)
         self.assertNotIn("slug", serialized)
 
-    def test_omits_high_degree_fanout_and_isolated_nodes(self):
+    def test_keeps_archive_fanout_and_isolated_nodes(self):
         with tempfile.TemporaryDirectory() as tmp:
             brain = Path(tmp) / "brain"
             brain.mkdir()
@@ -57,8 +57,8 @@ class AnonymousGraphTests(unittest.TestCase):
 
             graph = load_builder().build_graph(brain)
 
-        self.assertEqual(len(graph["nodes"]), 2)
-        self.assertEqual(len(graph["edges"]), 1)
+        self.assertEqual(len(graph["nodes"]), 44)
+        self.assertEqual(len(graph["edges"]), 42)
 
     def test_ignores_readmes_and_unresolved_links(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -68,7 +68,7 @@ class AnonymousGraphTests(unittest.TestCase):
             (brain / "idea.md").write_text("[[missing]]", encoding="utf-8")
             graph = load_builder().build_graph(brain)
 
-        self.assertEqual(graph["nodes"], [])
+        self.assertEqual(len(graph["nodes"]), 1)
         self.assertEqual(graph["edges"], [])
 
 

@@ -14,7 +14,6 @@ from typing import Any
 
 WIKILINK = re.compile(r"\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]")
 HUES = [198, 252, 292, 166, 32, 338]
-MAX_DISPLAY_DEGREE = 40
 
 
 def source_files(brain: Path) -> list[Path]:
@@ -43,31 +42,11 @@ def build_graph(brain: Path) -> dict[str, list[dict[str, Any]]]:
             if target and target != path:
                 edges.add((node_id[path], node_id[target]))
 
-    degree = {identifier: 0 for identifier in node_id.values()}
-    for source, target in edges:
-        degree[source] += 1
-        degree[target] += 1
-
-    # Generated archive/index pages create hundreds of mechanical links. They
-    # swamp the genuine local clusters, so omit their fan-out and any node left
-    # isolated by that omission.
-    displayed_ids = {
-        identifier
-        for identifier, count in degree.items()
-        if 0 < count <= MAX_DISPLAY_DEGREE
-    }
-    displayed_edges = [
-        (source, target)
-        for source, target in sorted(edges)
-        if source in displayed_ids and target in displayed_ids
-    ]
-    connected_ids = {identifier for edge in displayed_edges for identifier in edge}
-
     return {
-        "nodes": [node for node in nodes if node["id"] in connected_ids],
+        "nodes": nodes,
         "edges": [
             {"source": source, "target": target}
-            for source, target in displayed_edges
+            for source, target in sorted(edges)
         ],
     }
 

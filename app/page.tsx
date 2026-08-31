@@ -13,6 +13,7 @@ interface Node {
   vx: number;
   vy: number;
   radius: number;
+  degree: number;
   alpha: number;
   pulsePhase: number;
 }
@@ -55,10 +56,16 @@ export default function Home() {
     // Initialize from imported JSON
     const data = graphData as GraphData;
     const nodeMap = new Map<string, Node>();
+    const degreeById = new Map<string, number>();
+    data.edges.forEach(({ source, target }) => {
+      degreeById.set(source, (degreeById.get(source) ?? 0) + 1);
+      degreeById.set(target, (degreeById.get(target) ?? 0) + 1);
+    });
 
     data.nodes.forEach((n) => {
       const angle = Math.random() * Math.PI * 2;
       const dist = Math.sqrt(Math.random()) * Math.min(width, height) * 0.45;
+      const degree = degreeById.get(n.id) ?? 0;
       const node: Node = {
         id: n.id,
         hue: n.hue,
@@ -66,7 +73,8 @@ export default function Home() {
         y: height / 2 + Math.sin(angle) * dist,
         vx: 0,
         vy: 0,
-        radius: 1.8,
+        radius: 1.8 + Math.min(1.1, Math.log2(degree + 1) * 0.18),
+        degree,
         alpha: 0.45 + Math.random() * 0.4,
         pulsePhase: Math.random() * Math.PI * 2,
       };
@@ -118,7 +126,10 @@ export default function Home() {
         const dy = b.y - a.y;
         const dist = Math.sqrt(dx * dx + dy * dy) || 1;
         const targetDist = 145;
-        const force = (dist - targetDist) * 0.0018;
+        // Archive/index nodes can have hundreds of mechanical links. Let those
+        // edges suggest structure without pulling the whole field into a hub.
+        const edgeWeight = 1 / Math.sqrt(Math.max(a.degree, b.degree, 1));
+        const force = (dist - targetDist) * 0.0018 * edgeWeight;
         const fx = (dx / dist) * force;
         const fy = (dy / dist) * force;
         a.vx += fx;
@@ -163,7 +174,8 @@ export default function Home() {
         const dx = b.x - a.x;
         const dy = b.y - a.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        const opacity = Math.max(0, 1 - dist / 420) * 0.48;
+        const densityWeight = 1 / Math.sqrt(Math.max(a.degree, b.degree, 1));
+        const opacity = Math.max(0, 1 - dist / 420) * (0.07 + densityWeight * 0.42);
 
         if (opacity > 0.015) {
           ctx.beginPath();
