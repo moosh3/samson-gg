@@ -154,21 +154,22 @@ export default function Home() {
       time += 0.016;
       ctx.clearRect(0, 0, width, height);
 
-      // Draw edges
-      ctx.lineWidth = 0.5;
+      // Edges are the point of the constellation, not background lint.
+      // Draw them bright enough to read at a glance while keeping dense clusters breathable.
+      ctx.lineWidth = 0.9;
       edges.forEach((e) => {
         const a = e.source;
         const b = e.target;
         const dx = b.x - a.x;
         const dy = b.y - a.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        const opacity = Math.max(0, 1 - dist / 300) * 0.2;
+        const opacity = Math.max(0, 1 - dist / 420) * 0.48;
 
-        if (opacity > 0.01) {
+        if (opacity > 0.015) {
           ctx.beginPath();
           ctx.moveTo(a.x, a.y);
           ctx.lineTo(b.x, b.y);
-          ctx.strokeStyle = `rgba(100,100,120,${opacity})`;
+          ctx.strokeStyle = `rgba(119, 171, 200, ${opacity})`;
           ctx.stroke();
         }
       });
