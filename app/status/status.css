@@ -314,6 +314,66 @@
   color: var(--text-secondary);
 }
 
+/* --- service report bars --- */
+
+.svc-list {
+  list-style: none;
+  display: grid;
+  gap: 4px;
+}
+
+.svc-row {
+  display: grid;
+  grid-template-columns: 74px 1fr 74px;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  padding: 2px 0;
+}
+
+.svc-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.svc-bar {
+  display: block;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(113, 113, 122, 0.16);
+  overflow: hidden;
+}
+
+.svc-bar i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, rgba(34, 211, 238, 0.6), rgba(167, 139, 250, 0.8));
+  border-radius: 3px;
+}
+
+.svc-row.hot .svc-bar i {
+  background: linear-gradient(90deg, rgba(244, 114, 182, 0.8), rgba(251, 191, 36, 0.9));
+}
+
+.svc-row.hot .svc-name {
+  color: var(--accent-pink);
+}
+
+.svc-val {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+
+.svc-val em {
+  font-style: normal;
+  color: var(--text-muted);
+  font-size: 0.66rem;
+  margin-left: 5px;
+}
+
 /* --- footer --- */
 
 .status-stamp {
@@ -347,7 +407,7 @@
 /* 8 tiles: force an even 4x2 block on wide screens instead of an orphan 7th */
 @media (min-width: 900px) {
   .kpis {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 

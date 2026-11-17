@@ -63,6 +63,21 @@ type Payload = {
     index?: { spx: number | null; ndx: number | null };
     series: { spx: Point[]; ndx: Point[]; halts: Point[] };
   };
+  services: {
+    as_of: string | null;
+    swept: number | null;
+    sweep_seconds: number | null;
+    spiking_count: number;
+    series: Point[];
+    items: {
+      name: string;
+      reports: number | null;
+      p90: number | null;
+      z: number | null;
+      status: string | null;
+      since: string | null;
+    }[];
+  };
   alerts: { t: string; text: string }[];
   thresholds: Record<string, number>;
 };
@@ -204,6 +219,15 @@ export default function SituationMonitor() {
   const nwsTone: Tone =
     (data.nws.extreme_active ?? 0) >= th.nws_extreme_count ? "warn" : "ok";
 
+  const svcItems = data.services.items || [];
+  const topSvc = svcItems[0];
+  const svcTone: Tone =
+    data.services.spiking_count >= 4
+      ? "alert"
+      : data.services.spiking_count >= 1
+      ? "warn"
+      : "ok";
+
   const bgpEntries = Object.entries(data.bgp.countries || {});
   const worstBgp = bgpEntries.reduce<number>(
     (acc, [, v]) => Math.min(acc, v.delta_pct_24h ?? 0),
@@ -305,6 +329,20 @@ export default function SituationMonitor() {
           </div>
           <div className="tile-value">{halts === null ? "—" : halts}</div>
           <div className="tile-note font-mono">wave max {wave ?? "—"} · alert at {th.halt_wave}</div>
+        </div>
+
+        <div className={toneClass(svcTone)}>
+          <div className="tile-label font-mono">
+            <Dot tone={svcTone} /> services spiking
+          </div>
+          <div className="tile-value">
+            {data.services.spiking_count}
+            <span className="tile-unit">/{data.services.swept ?? "—"}</span>
+          </div>
+          <div className="tile-note font-mono">
+            {topSvc ? `${topSvc.name} ${topSvc.z}x` : "downdetector"} ·{" "}
+            {ago(data.services.as_of)}
+          </div>
         </div>
 
         <div className={toneClass(nwsTone)}>
@@ -414,6 +452,35 @@ export default function SituationMonitor() {
               <span>m4.5+ quakes 24h</span>
               <span>{data.quake.count_24h_m45 ?? "—"}</span>
             </li>
+          </ul>
+        </article>
+
+        <article className="panel">
+          <h2 className="font-mono">service reports · downdetector</h2>
+          <Sparkline pts={data.services.series} color="var(--accent-pink)" height={30} />
+          <div className="spark-caption font-mono">
+            peak spike ratio across {data.services.swept ?? "—"} services ·{" "}
+            {data.services.sweep_seconds ? `${data.services.sweep_seconds}s sweep` : "no sweep yet"}
+          </div>
+          <ul className="svc-list font-mono">
+            {svcItems.slice(0, 7).map((s) => {
+              const z = s.z ?? 0;
+              const hot = z >= (th.service_z ?? 2) && (s.reports ?? 0) >= (th.service_reports ?? 100);
+              const w = Math.min(100, (z / 3) * 100);
+              return (
+                <li key={s.name} className={hot ? "svc-row hot" : "svc-row"}>
+                  <span className="svc-name">{s.name}</span>
+                  <span className="svc-bar">
+                    <i style={{ width: `${Math.max(2, w)}%` }} />
+                  </span>
+                  <span className="svc-val">
+                    {s.reports ?? "—"}
+                    <em>{z.toFixed(1)}x</em>
+                  </span>
+                </li>
+              );
+            })}
+            {svcItems.length === 0 && <li className="svc-row">no sweep data</li>}
           </ul>
         </article>
 
