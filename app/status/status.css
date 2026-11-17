@@ -90,10 +90,10 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  font-size: 0.66rem;
+  font-size: 0.7rem;
   letter-spacing: 0.09em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 .tile-value {
@@ -115,8 +115,8 @@
 
 .tile-note {
   margin-top: 4px;
-  font-size: 0.66rem;
-  color: var(--text-muted);
+  font-size: 0.7rem;
+  color: var(--text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -190,8 +190,8 @@
 }
 
 .spark-caption {
-  font-size: 0.64rem;
-  color: var(--text-muted);
+  font-size: 0.7rem;
+  color: var(--text-secondary);
   margin: 2px 0 10px;
 }
 
@@ -200,8 +200,8 @@
 }
 
 .panel-note {
-  font-size: 0.66rem;
-  color: var(--text-muted);
+  font-size: 0.7rem;
+  color: var(--text-secondary);
   line-height: 1.6;
   word-break: break-word;
 }
@@ -223,7 +223,7 @@
   display: flex;
   justify-content: space-between;
   gap: 8px;
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   padding: 3px 0;
   border-bottom: 1px dotted rgba(113, 113, 122, 0.18);
 }
@@ -239,7 +239,7 @@
 }
 
 .bgp-delta {
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
   min-width: 52px;
   text-align: right;
@@ -265,8 +265,8 @@
   display: flex;
   justify-content: space-between;
   gap: 10px;
-  font-size: 0.7rem;
-  color: var(--text-muted);
+  font-size: 0.72rem;
+  color: var(--text-secondary);
   border-bottom: 1px dotted rgba(113, 113, 122, 0.18);
   padding: 3px 0;
 }
@@ -293,7 +293,7 @@
   display: grid;
   grid-template-columns: 46px 1fr;
   gap: 8px;
-  font-size: 0.66rem;
+  font-size: 0.7rem;
   line-height: 1.5;
   color: var(--text-secondary);
   border-left: 2px solid rgba(244, 114, 182, 0.5);
@@ -306,12 +306,12 @@
 }
 
 .alert-t {
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
 }
 
 .quiet-note {
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 /* --- footer --- */
@@ -333,8 +333,8 @@
   flex-wrap: wrap;
   justify-content: space-between;
   gap: 8px;
-  font-size: 0.62rem;
-  color: var(--text-muted);
+  font-size: 0.68rem;
+  color: var(--text-secondary);
   letter-spacing: 0.02em;
 }
 
@@ -353,5 +353,11 @@
   }
   .tile-value {
     font-size: 1.35rem;
+  }
+  .tile-note {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    line-height: 1.35;
   }
 }
