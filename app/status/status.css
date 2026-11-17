@@ -344,6 +344,13 @@
   color: var(--text-muted);
 }
 
+/* 8 tiles: force an even 4x2 block on wide screens instead of an orphan 7th */
+@media (min-width: 900px) {
+  .kpis {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 560px) {
   .status-root {
     padding: 22px 14px 48px;
