@@ -30,11 +30,10 @@ type Payload = {
   };
   nws: { extreme_active: number | null; series: Point[] };
   bgp: {
-    countries: Record<
-      string,
-      { prefixes: number; delta_pct_24h: number | null; series: Point[] }
-    >;
+    countries: Record<string, { prefixes: number; delta_pct_24h: number | null }>;
     as_of: string | null;
+    stale_min: number | null;
+    stale: boolean;
     source: string;
   };
   grid: {
@@ -229,11 +228,18 @@ export default function SituationMonitor() {
       : "ok";
 
   const bgpEntries = Object.entries(data.bgp.countries || {});
+  const bgpStale = !!data.bgp.stale;
   const worstBgp = bgpEntries.reduce<number>(
     (acc, [, v]) => Math.min(acc, v.delta_pct_24h ?? 0),
     0
   );
-  const bgpTone: Tone = worstBgp <= -th.bgp_drop_pct ? "alert" : worstBgp <= -0.2 ? "warn" : "ok";
+  const bgpTone: Tone = bgpStale
+    ? "idle"
+    : worstBgp <= -th.bgp_drop_pct
+    ? "alert"
+    : worstBgp <= -0.2
+    ? "warn"
+    : "ok";
 
   const infraTone: Tone =
     data.infra.aws === "degraded" || data.infra.azure === "degraded" || (data.infra.gcp_open ?? 0) > 0
@@ -294,7 +300,9 @@ export default function SituationMonitor() {
             <span className="tile-unit">countries</span>
           </div>
           <div className="tile-note font-mono">
-            worst 24h {worstBgp === 0 ? "flat" : `${worstBgp.toFixed(2)}%`} · ioda
+            {bgpStale
+              ? `stale ${data.bgp.stale_min}m`
+              : `worst 24h ${worstBgp === 0 ? "flat" : worstBgp.toFixed(2) + "%"} · ioda`}
           </div>
         </div>
 
