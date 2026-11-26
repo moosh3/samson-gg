@@ -92,6 +92,13 @@ function amt(iso: string | null | undefined): string {
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
+function asClock(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+}
+
 function ago(iso: string | null | undefined): string {
   if (!iso) return "unknown";
   const ms = Date.now() - new Date(iso).getTime();
@@ -301,7 +308,7 @@ export default function SituationMonitor() {
           </div>
           <div className="tile-note font-mono">
             {bgpStale
-              ? `stale ${data.bgp.stale_min}m`
+              ? `as of ${asClock(data.bgp.as_of)} · stale`
               : `worst 24h ${worstBgp === 0 ? "flat" : worstBgp.toFixed(2) + "%"} · ioda`}
           </div>
         </div>
@@ -389,8 +396,15 @@ export default function SituationMonitor() {
         </article>
 
         <article className="panel">
-          <h2 className="font-mono">bgp prefixes · 24h</h2>
-          <div className="bgp-grid">
+          <h2 className="font-mono">
+            bgp prefixes · 24h
+            {bgpStale && (
+              <span className="font-mono" style={{ float: "right", color: "var(--text-muted)" }}>
+                source blind · as of {asClock(data.bgp.as_of)}
+              </span>
+            )}
+          </h2>
+          <div className="bgp-grid" style={bgpStale ? { opacity: 0.6 } : undefined}>
             {bgpEntries.map(([cc, v]) => (
               <div key={cc} className="bgp-row font-mono">
                 <span className="bgp-cc">{cc}</span>
